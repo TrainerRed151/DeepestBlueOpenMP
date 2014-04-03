@@ -1,0 +1,149 @@
+//Brian Pomerantz
+
+import java.util.*;
+
+public class AI {
+	private boolean side;
+	private int depth;
+	
+	public AI(boolean side, int depth) {
+		this.side = side;
+		this.depth = depth;
+	}
+	
+	//Calculates the best move using a MinMax algorithm with ALphaBeta Pruning
+	//Input: ArrayList of legal moves
+	//Output: The particular legal move which maximizes (or minimizes) the engine's score
+	public String move(Board bd) {
+		ArrayList moves = bd.legalMoves(side);
+		
+		//Stalemate
+		if (moves.size() == 0) {
+			return '\u00AB' + "-" + '\u00AB';
+		}
+
+		byte alpha = Byte.MIN_VALUE, beta = Byte.MAX_VALUE;
+		
+		byte best = -1, val, bestVal;
+		if (side) {bestVal = Byte.MIN_VALUE;}
+		else {bestVal = Byte.MAX_VALUE;}
+		
+		//omp parallel shared(best, val, bestVal, alpha, beta) {
+			//omp for
+			for (byte i = 0; i < moves.size(); i++) {
+				Board nBD = new Board(bd.getBoard());
+				val = alphabeta(nBD.move((String) moves.get(i), side), depth, alpha, beta, !side);
+				//System.out.println(moves.get(i) + ": " + val);
+				
+				if (side && val > bestVal) {
+					//omp critical {
+						bestVal = val;
+						best = i;
+					}
+					
+					if (val > alpha) {
+						//omp critical {
+							alpha = val;
+						}
+					}	
+				}
+				
+				if (!side && val < bestVal) {
+					//omp critical {
+						bestVal = val;
+						best = i;
+					}
+					
+					if (val < beta) {
+						//omp critical {
+							beta = val;
+						}
+					}
+				}
+				
+				if (beta <= alpha) {					
+					return;
+	    	}
+			}
+		}
+		
+		//Resign if opponent has forced mate within depth
+		//Alternatively, the engine could chose a random move
+		if (best == -1) {
+			if (side){return "0-1";}
+			else{return "1-0";}
+		}
+		
+		return (String) moves.get(best);
+	}
+		
+	//AlphaBeta function
+	//Recursively determines best possible move assuming perfect play within given depth
+	//Discontinues branch of search tree if necessarily worse than previously calculated branch
+	//More efficient than MinMax
+	private byte alphabeta(Board bd, int dep, byte alpha, byte beta, boolean maxPlayer) {
+		if (dep == 0) {
+        	return bd.score();
+		}
+		
+    if (maxPlayer) {
+    	ArrayList list = bd.legalMoves(true);
+    	
+    	//Checkmate	
+    	if (bd.checkmate(false)) {
+    		return Byte.MIN_VALUE;
+    	}
+    	
+    	//Stalemate
+    	if (list.size() == 0) {
+    		return 0;
+    	}
+    	
+   		for (int s = 0; s < list.size(); s++) {
+   			Board nBD = new Board(bd.getBoard());
+   			
+				byte tempVal = alphabeta(nBD.move((String) list.get(s), true), dep-1, alpha, beta, false);
+				
+				if (tempVal > alpha) {
+						alpha = tempVal;
+				}
+
+    		if (beta <= alpha) {
+   				break;
+   			}
+   		}		
+	
+			return alpha;
+		}
+    	
+  	else {
+  		ArrayList list = bd.legalMoves(false);
+  		
+  		//Checkmate
+  		if (bd.checkmate(true)) {
+  			return Byte.MAX_VALUE;
+  		}
+  		
+  		//Stalemate
+  		if (list.size() == 0) {
+  			return 0;
+  		}
+  		
+			for (int s = 0; s < list.size(); s++) {
+				Board nBD = new Board(bd.getBoard());
+  				
+				byte tempVal = alphabeta(nBD.move((String) list.get(s), false), dep-1, alpha, beta, true);
+				
+				if (tempVal < beta) {
+						beta = tempVal;
+				}
+
+  			if (beta <= alpha) {
+  				break;
+  			}
+  		}
+								
+			return beta;
+		}
+	}
+}
